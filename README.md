@@ -13,7 +13,6 @@ Process modules, core classes, or anything else in the ProcessWire API.
 Designed to help core developers and module authors catch regressions, and as a
 starting point for anyone who wants to contribute new tests.
 
----
 
 ## Requirements
 
@@ -21,7 +20,6 @@ starting point for anyone who wants to contribute new tests.
 - PHP 8.0+
 - `$config->useFunctionsAPI=true;` in /site/config.php
 
----
 
 ## Installation
 
@@ -35,7 +33,6 @@ that you don't already have a template/page with the same names.
 3. Installation creates a hidden `/test/` page (template: `test`) used as the test page
    that all test files can read from and write to.
 
----
 
 ## Running tests
 
@@ -65,7 +62,6 @@ Tests for modules that are not installed are skipped automatically.
 Go to **Modules > Configure > WireTests**, choose a test from the dropdown, and submit.
 Results appear below the form.
 
----
 
 ## Included tests
 
@@ -97,7 +93,6 @@ checks, and cleans up after itself on uninstall.
 | `FieldtypeCustom` | Subfield definition file, JSON storage, rename migration, selectors |
 | `FieldtypeCombo` | Typed subfields, select formatting, field config API, subfield CRUD |
 
----
 
 ## Writing your own test
 
@@ -218,7 +213,6 @@ wireTests()->note('message');  // output a plain note
 - **Use `$page->of(false)` before modifying and saving.** Output formatting should be off when
   writing values, and explicitly turned on when testing formatted output.
 
----
 
 ## How the test runner works
 
@@ -229,7 +223,6 @@ wireTests()->note('message');  // output a plain note
 4. No exception → test passes.
 5. A summary line is printed at the end showing passed/failed counts.
 
----
 
 ## Contributing
 
