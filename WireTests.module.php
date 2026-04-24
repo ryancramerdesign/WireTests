@@ -245,17 +245,18 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 		}
 		
 		$this->testName = $name;
-		$this->cwd = getcwd();	
+		$this->cwd = getcwd();
+		$runAll = ($name === 'all'); // capture before test files can overwrite $name
 		$path = $this->getTestsPath();
-		
+
 		chdir($path);
-		
+
 		$fuel = $this->wire()->fuel->getArray();
 		extract($fuel); // place API variables in scope
-		
+
 		foreach($this->getTestFiles($path) as $testName => $testFile) {
-			
-			if($this->testName !== 'all' && $this->testName !== $testName) continue;
+
+			if(!$runAll && $name !== $testName) continue;
 		
 			$page = $this->getTestPage(); // get again just in case a test overwrote it
 			$page->of(false); // reset output formatting before each test
@@ -284,7 +285,7 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 				$this->fail($t->getMessage());
 			}
 			
-			if($this->testName !== 'all') break;
+			if(!$runAll) break;
 		}
 		
 		$this->summary();
