@@ -1,6 +1,6 @@
-# WireTests — ProcessWire Test Suite
+# ProcessWire Test Suite
 
-A simple, runnable test suite for ProcessWire modules and core classes. Tests verify
+WireTests is a simple, runnable test suite for ProcessWire modules and core classes. Tests verify
 that modules work as intended and as documented — covering field creation, value
 storage/retrieval, output formatting, selectors, and more. Each test file corresponds
 to one ProcessWire module or class, and is skipped automatically if that module is
