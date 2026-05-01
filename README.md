@@ -73,6 +73,8 @@ Core class tests call API methods directly and verify return values.
 
 | Test file | What it covers |
 |---|---|
+| `Modules` | get, install, uninstall, findByPrefix/Flag/Info, getModuleInfo, config get/save, helper classes |
+| `Pages` | get, find, findIDs, getRaw, findRaw, getFresh, add, new, save, clone, cache, sort, trash, restore, delete |
 | `Sanitizer` | Text, names, numbers, booleans, URLs, arrays, HTML entities, validation, truncation, chaining |
 | `FieldtypeCheckbox` | Boolean 0/1 storage, output formatting |
 | `FieldtypeDatetime` | Date/time storage, PHP date strings, timestamp input, selectors |

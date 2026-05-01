@@ -205,6 +205,56 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 	}
 	
 	/**
+	 * Assert that $expectValue and $actualValue satisfy $operator, output li() on pass or throw on fail
+	 *
+	 * Supported operators: ===, !==, ==, !=, <, <=, >, >=
+	 * String operators (actual vs. expected): *= (contains), ^= (starts with), $= (ends with)
+	 *
+	 * @param string $testName
+	 * @param mixed $expectValue
+	 * @param mixed $actualValue
+	 * @param string $operator
+	 * @throws WireTestException
+	 *
+	 */
+	public function check($testName, $expectValue, $actualValue, $operator = '===') {
+		$message = '';
+		if($operator === '===') {
+			$ok = $expectValue === $actualValue;
+		} else if($operator === '!==') {
+			$ok = $expectValue !== $actualValue;
+		} else if($operator === '==') {
+			$ok = $expectValue == $actualValue;
+		} else if($operator === '!=') {
+			$ok = $expectValue != $actualValue;
+		} else if($operator === '<') {
+			$ok = $expectValue < $actualValue;
+		} else if($operator === '<=') {
+			$ok = $expectValue <= $actualValue;
+		} else if($operator === '>') {
+			$ok = $expectValue > $actualValue;
+		} else if($operator === '>=') {
+			$ok = $expectValue >= $actualValue;
+		} else if($operator === '*=') {
+			$ok = strpos((string) $actualValue, (string) $expectValue) !== false;
+			$message = "$testName: " . var_export($actualValue, true) . " does not contain " . var_export($expectValue, true);
+		} else if($operator === '^=') {
+			$ok = str_starts_with((string) $actualValue, (string) $expectValue);
+			$message = "$testName: " . var_export($actualValue, true) . " does not start with " . var_export($expectValue, true);
+		} else if($operator === '$=') {
+			$ok = str_ends_with((string) $actualValue, (string) $expectValue);
+			$message = "$testName: " . var_export($actualValue, true) . " does not end with " . var_export($expectValue, true);
+		} else {
+			throw new WireTestException("Operator '$operator' not supported");
+		}
+		if(!$ok) {
+			if(!$message) $message = "$testName: Expected: " . var_export($expectValue, true) . ", Received: " . var_export($actualValue, true);
+			throw new WireTestException($message);
+		}
+		$this->li("$testName: OK");
+	}
+	
+	/**
 	 * Output summary of test(s)
 	 * 
 	 */
@@ -306,7 +356,7 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 	public function getCliCommands() {
 		$commands = [ 'all' => 'Run all tests' ]; 
 		foreach(array_keys($this->getTestFiles()) as $name) {
-			$commands[$name] = "Test $name module";
+			$commands[$name] = "Test $name";
 		}
 		return $commands;	
 	}
@@ -480,6 +530,23 @@ function wireTests(?WireTests $wireTests = null) {
 	if($wireTests !== null) $module = $wireTests;
 	if(!$module) $module = wire()->modules->get('WireTests');
 	return $module;
+}
+
+/**
+ * Assert that $expectValue and $actualValue satisfy $operator, output li() on pass or throw on fail
+ *
+ * Supported operators: ===, !==, ==, !=, <, <=, >, >=
+ * String operators (actual vs. expected): *= (contains), ^= (starts with), $= (ends with)
+ *
+ * @param string $testName
+ * @param mixed $expectValue
+ * @param mixed $actualValue
+ * @param string $operator
+ * @throws WireTestException
+ *
+ */
+function check($testName, $expectValue, $actualValue, $operator = '===') {
+	wireTests()->check($testName, $expectValue, $actualValue, $operator);
 }
 
 /**
