@@ -263,14 +263,18 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 		
 			$className = $testName;
 			if(!$modules->isInstalled($className)) {
-				$this->line("Skipping '$className' - not installed");
-				continue;
-			}
-			
-			$module = $this->wire()->modules->getModule($className);
-			if(!$module) {
-				$this->line("Skipping '$className' - not available");
-				continue;
+				// Also allow tests for core classes (e.g. Sanitizer) that aren't installable modules
+				$coreClass = __NAMESPACE__ . "\\$className";
+				if(!class_exists($coreClass) && !class_exists($className)) {
+					$this->line("Skipping '$className' - not installed");
+					continue;
+				}
+			} else {
+				$module = $this->wire()->modules->getModule($className);
+				if(!$module) {
+					$this->line("Skipping '$className' - not available");
+					continue;
+				}
 			}
 			
 			try {

@@ -65,12 +65,15 @@ Results appear below the form.
 
 ## Included tests
 
-The following Fieldtype tests ship with the module. Each test creates its own field
-(if not already present), adds it to the `test` template, performs read/write/selector
-checks, and cleans up after itself on uninstall.
+The following tests ship with the module.
+
+Fieldtype tests create their own field (if not already present), add it to the `test`
+template, perform read/write/selector checks, and clean up after themselves on uninstall.
+Core class tests call API methods directly and verify return values.
 
 | Test file | What it covers |
 |---|---|
+| `Sanitizer` | Text, names, numbers, booleans, URLs, arrays, HTML entities, validation, truncation, chaining |
 | `FieldtypeCheckbox` | Boolean 0/1 storage, output formatting |
 | `FieldtypeDatetime` | Date/time storage, PHP date strings, timestamp input, selectors |
 | `FieldtypeDecimal` | Decimal storage, precision, comparison selectors |
@@ -98,15 +101,17 @@ checks, and cleans up after itself on uninstall.
 
 ### File naming and location
 
-Create a PHP file in the `site/modules/WireTests/tests/` directory. Name it after the module it tests,
-exactly matching the module/class name:
+Create a PHP file in the `site/modules/WireTests/tests/` directory. Name it after the
+module or core class it tests, exactly matching the class name:
 
 ```
-tests/FieldtypeMyModule.php
+tests/FieldtypeMyModule.php   # module test
+tests/Sanitizer.php           # core class test
 ```
 
-The test is skipped automatically if `FieldtypeMyModule` is not installed, so it is
-safe to include tests for optional or third-party modules.
+Module tests are skipped automatically if the module is not installed, so it is safe to
+include tests for optional or third-party modules. Core ProcessWire classes (such as
+`Sanitizer`) are detected by class name and run without requiring a module install.
 
 ### File structure
 
