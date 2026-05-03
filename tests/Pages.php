@@ -6,6 +6,31 @@
 $childTemplateName = 'pages-test-child';
 $childTemplate = $templates->get($childTemplateName);
 $createdTemplate = false;
+$addedTitleField = false;
+$createdPageIDs = [];
+
+$cleanupPage = function($item) use ($pages) {
+	$p = $item instanceof Page ? $item : $pages->get((int) $item);
+	if(!$p->id) return;
+	if($p->isTrash()) $pages->delete($p, true);
+	else $pages->delete($p, true);
+};
+
+$cleanupTestPages = function() use ($pages, $page, $childTemplateName, &$createdPageIDs, $cleanupPage) {
+	foreach(array_reverse($createdPageIDs) as $id) {
+		$cleanupPage($id);
+	}
+	$createdPageIDs = [];
+
+	foreach($pages->find("template=$childTemplateName, parent={$page->id}, include=all") as $leftover) {
+		$cleanupPage($leftover);
+	}
+
+	foreach($pages->find("template=$childTemplateName, include=all, status=" . Page::statusTrash) as $leftover) {
+		$cleanupPage($leftover);
+	}
+};
+
 if(!$childTemplate) {
 	$childTemplate = $templates->new($childTemplateName);
 	$childTemplate->save();
@@ -19,12 +44,13 @@ $titleField = $fields->get('title');
 if($titleField && !$childTemplate->hasField($titleField)) {
 	$childTemplate->fieldgroup->add($titleField);
 	$childTemplate->fieldgroup->save();
+	$addedTitleField = true;
 }
 
 // Delete any leftover child pages from previous runs
-foreach($pages->find("template=$childTemplateName, parent={$page->id}, include=all") as $leftover) {
-	$pages->delete($leftover, true);
-}
+$cleanupTestPages();
+
+try {
 
 // ===== FINDING PAGES =====
 
@@ -133,6 +159,7 @@ $child1 = $pages->add($childTemplateName, $page, [
 	'title' => 'Pages Test Child A',
 	'status' => Page::statusHidden,
 ]);
+$createdPageIDs[$child1->id] = $child1->id;
 check("add() returns Page with id > 0", true, $child1->id > 0);
 check("add() page has correct template", $childTemplateName, $child1->template->name);
 check("add() page has correct parent", $page->id, $child1->parent->id);
@@ -149,6 +176,7 @@ $child2 = $pages->new([
 	'title' => 'Pages Test Child B',
 	'status' => Page::statusHidden,
 ]);
+$createdPageIDs[$child2->id] = $child2->id;
 check("new(array) returns saved Page", true, $child2->id > 0);
 check("new(array) page has correct name", 'pages-test-child-b', $child2->name);
 
@@ -186,6 +214,7 @@ check("touch() updated or preserved modified timestamp", true, $pages->getFresh(
 // ===== CLONE =====
 
 $cloned = $pages->clone($child1);
+$createdPageIDs[$cloned->id] = $cloned->id;
 check("clone() returns a Page with new id", true, $cloned->id > 0 && $cloned->id !== $child1->id);
 check("clone() page has same parent", $child1->parent->id, $cloned->parent->id);
 check("clone() page has same template", $child1->template->name, $cloned->template->name);
@@ -204,17 +233,34 @@ check("get() still works after uncacheAll()", $child1->id, $pages->get($child1->
 
 // ===== SORT =====
 
+$getTestChildIDs = function() use ($pages, $page, $childTemplateName) {
+	$ids = [];
+	foreach($pages->find("template=$childTemplateName, parent={$page->id}, include=all, sort=sort") as $child) {
+		$ids[] = $child->id;
+	}
+	return $ids;
+};
+
 // sort() — set position among siblings
 $pages->sort($child1, 0);
-check("sort() does not throw", true, true);
+$orderedIDs = $getTestChildIDs();
+check("sort() moves page to requested first position", $child1->id, reset($orderedIDs));
+$pages->uncacheAll();
+$child1 = $pages->getFresh($child1->id);
+$child2 = $pages->getFresh($child2->id);
 
 // insertAfter() — move child1 to after child2
 $pages->insertAfter($child1, $child2);
-check("insertAfter() does not throw", true, true);
+$orderedIDs = $getTestChildIDs();
+check("insertAfter() places page immediately after sibling", [$child2->id, $child1->id], array_values(array_intersect($orderedIDs, [$child1->id, $child2->id])));
+$pages->uncacheAll();
+$child1 = $pages->getFresh($child1->id);
+$child2 = $pages->getFresh($child2->id);
 
 // insertBefore() — move child1 to before child2
 $pages->insertBefore($child1, $child2);
-check("insertBefore() does not throw", true, true);
+$orderedIDs = $getTestChildIDs();
+check("insertBefore() places page immediately before sibling", [$child1->id, $child2->id], array_values(array_intersect($orderedIDs, [$child1->id, $child2->id])));
 
 // ===== TRASH AND RESTORE =====
 
@@ -242,6 +288,7 @@ check("restore() page is no longer in trash", false, $freshCloned2->isTrash());
 
 $clonedId = $cloned->id;
 $pages->delete($cloned);
+unset($createdPageIDs[$clonedId]);
 check("delete() page no longer findable by ID", 0, $pages->get($clonedId)->id);
 
 // findMany() — chunked iteration (basic smoke test)
@@ -254,12 +301,30 @@ check("findMany() iterates pages without error", true, $manyCount >= 2);
 // ===== CLEANUP =====
 
 $pages->delete($child1);
+$child1Id = $child1->id;
+unset($createdPageIDs[$child1Id]);
 $pages->delete($child2);
-check("cleanup: child1 deleted", 0, $pages->get($child1->id)->id);
-check("cleanup: child2 deleted", 0, $pages->get($child2->id)->id);
+$child2Id = $child2->id;
+unset($createdPageIDs[$child2Id]);
+check("cleanup: child1 deleted", 0, $pages->get($child1Id)->id);
+check("cleanup: child2 deleted", 0, $pages->get($child2Id)->id);
 
-if($createdTemplate) {
-	$templates->delete($childTemplate);
-	$fieldgroups->delete($fieldgroups->get($childTemplateName));
-	wireTests()->li("Deleted template: $childTemplateName");
+} finally {
+	$cleanupTestPages();
+
+	if($createdTemplate) {
+		$childTemplate = $templates->get($childTemplateName);
+		if($childTemplate) {
+			$fieldgroup = $childTemplate->fieldgroup;
+			$templates->delete($childTemplate);
+			if($fieldgroup && $fieldgroup->id) $fieldgroups->delete($fieldgroup);
+			wireTests()->li("Deleted template: $childTemplateName");
+		}
+	} else if($addedTitleField) {
+		$childTemplate = $templates->get($childTemplateName);
+		if($childTemplate && $titleField && $childTemplate->hasField($titleField)) {
+			$childTemplate->fieldgroup->remove($titleField);
+			$childTemplate->fieldgroup->save();
+		}
+	}
 }

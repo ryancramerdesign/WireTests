@@ -59,7 +59,7 @@ foreach($selectors as $selector) {
 	if($p->id === $page->id) {
 		wireTests()->li("Selector passed: $selector"); 
 	} else {
-		throw new WireTestException("Selector failed: $selector ($p->id != $page->id)"); 
+		throw new WireTestException("Selector failed: $selector (found page $p->id != $page->id test page)"); 
 	}
 
 	/*

@@ -1,8 +1,14 @@
 <?php namespace ProcessWire;
+
 /** @var Page $page */
+/** @var Modules $modules*/
 
 $moduleClass = 'TestModule';
 $alreadyInstalled = $modules->isInstalled($moduleClass);
+$installedByTest = false;
+$originalConfigData = null;
+
+try {
 
 // ===== INSTALL LIFECYCLE =====
 
@@ -10,6 +16,7 @@ if(!$alreadyInstalled) {
 	check("isInstallable() true when module not yet installed", true, $modules->isInstallable($moduleClass));
 	$installed = $modules->install($moduleClass);
 	check("install() returns Module instance", true, $installed instanceof Module);
+	$installedByTest = true;
 	wireTests()->li("Installed $moduleClass");
 }
 
@@ -108,6 +115,7 @@ check("findByInfo(load=true) returns Module instances", true, reset($byNameLoade
 
 $configData = $modules->getConfig($moduleClass);
 check("getConfig() returns array", true, is_array($configData));
+$originalConfigData = $configData;
 
 // Save single config property (key/value form)
 $origValue = $configData['testValue'] ?? 'Hello World';
@@ -120,6 +128,7 @@ $saveData = $modules->getConfig($moduleClass);
 $saveData['testValue'] = $origValue;
 $modules->saveConfig($moduleClass, $saveData);
 check("saveConfig(module, array) restores original value", $origValue, $modules->getConfig($moduleClass, 'testValue'));
+$originalConfigData = null;
 
 // getModuleEditUrl
 $editUrl = $modules->getModuleEditUrl($moduleClass);
@@ -137,5 +146,15 @@ if(!$alreadyInstalled) {
 	$modules->uninstall($moduleClass);
 	check("isInstalled() false after uninstall", false, $modules->isInstalled($moduleClass));
 	check("isInstallable() true after uninstall (file still on disk)", true, $modules->isInstallable($moduleClass));
+	$installedByTest = false;
 	wireTests()->li("Uninstalled $moduleClass");
+}
+
+} finally {
+	if($originalConfigData !== null && $modules->isInstalled($moduleClass)) {
+		$modules->saveConfig($moduleClass, $originalConfigData);
+	}
+	if($installedByTest && $modules->isInstalled($moduleClass)) {
+		$modules->uninstall($moduleClass);
+	}
 }

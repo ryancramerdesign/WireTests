@@ -71,32 +71,34 @@ Fieldtype tests create their own field (if not already present), add it to the `
 template, perform read/write/selector checks, and clean up after themselves on uninstall.
 Core class tests call API methods directly and verify return values.
 
-| Test file | What it covers |
-|---|---|
-| `Modules` | get, install, uninstall, findByPrefix/Flag/Info, getModuleInfo, config get/save, helper classes |
-| `Pages` | get, find, findIDs, getRaw, findRaw, getFresh, add, new, save, clone, cache, sort, trash, restore, delete |
-| `Sanitizer` | Text, names, numbers, booleans, URLs, arrays, HTML entities, validation, truncation, chaining |
-| `FieldtypeCheckbox` | Boolean 0/1 storage, output formatting |
-| `FieldtypeDatetime` | Date/time storage, PHP date strings, timestamp input, selectors |
-| `FieldtypeDecimal` | Decimal storage, precision, comparison selectors |
-| `FieldtypeEmail` | Email storage, sanitization, selectors |
-| `FieldtypeFile` | File upload/storage/retrieval |
-| `FieldtypeFloat` | Float storage, precision, comparison selectors |
-| `FieldtypeImage` | Image upload/storage/retrieval |
-| `FieldtypeInteger` | Integer storage, comparison selectors |
-| `FieldtypeOptions` | Single/multi-select options, set by ID/title/value, selectors |
-| `FieldtypePage` | Page references (single and multiple), selectors |
-| `FieldtypePageTable` | PageTable child page creation and retrieval |
-| `FieldtypeRepeater` | Repeater item creation, value storage, retrieval |
-| `FieldtypeRepeaterMatrix` | RepeaterMatrix types, item creation, retrieval |
-| `FieldtypeSelector` | Selector field storage and retrieval |
-| `FieldtypeTable` | Table row storage, column types, retrieval |
-| `FieldtypeText` | Text storage, textformatters, selectors |
-| `FieldtypeTextarea` | Textarea storage, selectors |
-| `FieldtypeToggle` | Toggle (0/1) storage, output formatting |
-| `FieldtypeURL` | URL storage, scheme sanitization, `noRelative` setting, selectors |
-| `FieldtypeCustom` | Subfield definition file, JSON storage, rename migration, selectors |
-| `FieldtypeCombo` | Typed subfields, select formatting, field config API, subfield CRUD |
+| Test file                 | What it covers                                                                                            |
+|---------------------------|-----------------------------------------------------------------------------------------------------------|
+| `Modules`                 | get, install, uninstall, findByPrefix/Flag/Info, getModuleInfo, config get/save, helper classes           |
+| `Pages`                   | get, find, findIDs, getRaw, findRaw, getFresh, add, new, save, clone, cache, sort, trash, restore, delete |
+| `Sanitizer`               | Text, names, numbers, booleans, URLs, arrays, HTML entities, validation, truncation, chaining             |
+| `WireDatabasePDO`         | Connection access, queries, transactions, schema inspection, sanitization, info, query log, backups       |
+| `WireInput`               | GET/POST/COOKIE/whitelist input, inline sanitization, URL segments, page numbers, URLs, query strings     |
+| `FieldtypeCheckbox`       | Boolean 0/1 storage, output formatting                                                                    |
+| `FieldtypeDatetime`       | Date/time storage, PHP date strings, timestamp input, selectors                                           |
+| `FieldtypeDecimal`        | Decimal storage, precision, comparison selectors                                                          |
+| `FieldtypeEmail`          | Email storage, sanitization, selectors                                                                    |
+| `FieldtypeFile`           | File upload/storage/retrieval                                                                             |
+| `FieldtypeFloat`          | Float storage, precision, comparison selectors                                                            |
+| `FieldtypeImage`          | Image upload/storage/retrieval                                                                            |
+| `FieldtypeInteger`        | Integer storage, comparison selectors                                                                     |
+| `FieldtypeOptions`        | Single/multi-select options, set by ID/title/value, selectors                                             |
+| `FieldtypePage`           | Page references (single and multiple), selectors                                                          |
+| `FieldtypePageTable`      | PageTable child page creation and retrieval                                                               |
+| `FieldtypeRepeater`       | Repeater item creation, value storage, retrieval                                                          |
+| `FieldtypeRepeaterMatrix` | RepeaterMatrix types, item creation, retrieval                                                            |
+| `FieldtypeSelector`       | Selector field storage and retrieval                                                                      |
+| `FieldtypeTable`          | Table row storage, column types, retrieval                                                                |
+| `FieldtypeText`           | Text storage, textformatters, selectors                                                                   |
+| `FieldtypeTextarea`       | Textarea storage, selectors                                                                               |
+| `FieldtypeToggle`         | Toggle (0/1) storage, output formatting                                                                   |
+| `FieldtypeURL`            | URL storage, scheme sanitization, `noRelative` setting, selectors                                         |
+| `FieldtypeCustom`         | Subfield definition file, JSON storage, rename migration, selectors                                       |
+| `FieldtypeCombo`          | Typed subfields, select formatting, field config API, subfield CRUD                                       |
 
 
 ## Writing your own test
@@ -117,29 +119,35 @@ include tests for optional or third-party modules. Core ProcessWire classes (suc
 
 ### File structure
 
-Below is a contrived simple test just to demonstrate the basics. 
+New tests should extend the `WireTest` base class. The test class name must be
+`WireTest_` followed by the test file basename.
 
 ```php
 <?php namespace ProcessWire;
-/** @var Page $page */
 
-// All ProcessWire API variables are in scope: $pages, $fields, $templates,
-// $modules, $sanitizer, $config, $user, etc.
-// $page is the pre-created hidden /test/ page (template: "test", of=false).
+class WireTest_MyClass extends WireTest {
 
-$a = 1; 
-$b = 2;
-$passed = $a < $b; // replace with your own test logic
+    public function init() {
+        // Optional setup before execute()
+    }
 
-if($passed) {
-    // use the wireTests()->li('text') to show status
-    wireTests()->li("Ok: 1 < 2"); 
-} else {
-    // throw WireTestException when test fails
-    throw new WireTestException("Oops: 1 > 2"); 
+    public function execute() {
+        $a = 1;
+        $b = 2;
+
+        $this->check("1 is less than 2", true, $a < $b);
+
+        if($a > $b) {
+            $this->fail("Unexpected comparison result");
+        }
+
+        $this->ok("Custom status line");
+    }
+
+    public function finish() {
+        // Optional cleanup; runs even when execute() fails
+    }
 }
-
-// Reaching this point without throwing = test passed
 ```
 
 The example below demonstrates the file structure for a Fieldtype test. 
@@ -147,66 +155,90 @@ For more and better examples, see the files in the `tests/` directory.
 
 ```php
 <?php namespace ProcessWire;
+
+class WireTest_FieldtypeMyModule extends WireTest {
+
+    protected $name = 'my_field_name';
+
+    public function init() {
+        $page = $this->getTestPage();
+        $fields = $this->wire()->fields;
+        $field = $fields->get($this->name);
+
+        // Create the field if it does not already exist
+        if(!$field) {
+            $field = $fields->new('FieldtypeMyModule', $this->name, 'My Field');
+            $this->ok("Created field: $this->name");
+        }
+
+        // Add field to the test template if not already there
+        $fieldgroup = $page->template->fieldgroup;
+        if(!$fieldgroup->hasField($field)) {
+            $fieldgroup->add($field);
+            $fieldgroup->save();
+            $this->ok("Added field to fieldgroup: $fieldgroup->name");
+        }
+    }
+
+    public function execute() {
+        $page = $this->getTestPage();
+        $pages = $this->wire()->pages;
+        $name = $this->name;
+
+        // Write a value
+        $page->of(false);
+        $page->set($name, 'some value');
+        $page->save($name);
+
+        // Read it back from a fresh page load
+        $fresh = $pages->getFresh($page->id);
+        $this->check("Value round-trip", 'some value', $fresh->get($name));
+
+        // Test a selector
+        $match = $pages->findOne("template=test, $name='some value'");
+        $this->check("Selector finds test page", $page->id, $match->id);
+    }
+}
+```
+
+Legacy flat-file tests are still supported. In flat-file tests, ProcessWire API variables
+are extracted into scope and the file passes if it reaches the end without throwing:
+
+```php
+<?php namespace ProcessWire;
 /** @var Page $page */
 
-// All ProcessWire API variables are in scope: $pages, $fields, $templates,
-// $modules, $sanitizer, $config, $user, etc.
-// $page is the pre-created hidden /test/ page (template: "test", of=false).
-
-$name = 'my_field_name';
-$field = fields()->get($name);
-
-// Create the field if it does not already exist
-if(!$field) {
-    $field = fields()->new('FieldtypeMyModule', $name, 'My Field');
-    wireTests()->li("Created field: $name");
-}
-
-// Add field to the test template if not already there
-$fieldgroup = $page->template->fieldgroup;
-if(!$fieldgroup->hasField($field)) {
-    $fieldgroup->add($field);
-    $fieldgroup->save();
-}
-
-// Write a value
-$page->set($name, 'some value');
-$page->save($name);
-
-// Read it back from a fresh page load
-$fresh = pages()->getFresh($page->id);
-if($fresh->get($name) !== 'some value') {
-    throw new WireTestException("Value mismatch: got " . var_export($fresh->get($name), true));
-}
-wireTests()->li("Value round-trip verified");
-
-// Test a selector
-$match = pages()->findOne("template=test, $name='some value'");
-if($match->id !== $page->id) {
-    throw new WireTestException("Selector failed: $name='some value'");
-}
-wireTests()->li("Selector passed: $name='some value'");
-
-// Reaching this point without throwing = test passed
+check("1 is less than 2", true, 1 < 2);
 ```
 
 ### Key conventions
 
-| Thing | Convention                                                                            |
-|---|---------------------------------------------------------------------------------------|
-| **Fail** | Throw `WireTestException('reason')`                                                   |
-| **Pass** | Reach end of file without throwing                                                    |
-| **Status output** | `wireTests()->li('message')`                                                          |
-| **Fresh page load** | `pages()->getFresh($page->id)`                                                        |
-| **Output formatting off** | `$page->of(false)` before setting/saving values                                       |
-| **Field already exists** | Check with `fields()->get($name)` and skip creation |
-| **Idempotent setup** | Guard any one-time setup (adding options, creating child pages, etc.) so it's safe to run more than once |
+| Thing                     | Convention                                                                                               |
+|---------------------------|----------------------------------------------------------------------------------------------------------|
+| **Test class**            | `class WireTest_TestName extends WireTest`                                                               |
+| **Run test logic**        | Implement `execute()`                                                                                    |
+| **Setup**                 | Implement `init()` when setup is needed                                                                  |
+| **Cleanup**               | Implement `finish()`; it runs even when `execute()` fails                                                |
+| **Fail**                  | `$this->fail('reason')` or throw `WireTestException('reason')`                                           |
+| **Check**                 | `$this->check('description', $expected, $actual)`                                                        |
+| **Pass**                  | `execute()` and `finish()` complete without throwing                                                     |
+| **Status output**         | `$this->ok('message')`, `$this->li('message')`, or `wireTests()->li('message')`                          |
+| **Fresh page load**       | `$this->wire()->pages->getFresh($page->id)`                                                              |
+| **Output formatting off** | `$page->of(false)` before setting/saving values                                                          |
+| **Field already exists**  | Check with `fields()->get($name)` and skip creation                                                      |
+| **Idempotent setup**      | Guard any one-time setup (adding options, creating child pages, etc.) so it's safe to run more than once |
 
 ### Available helpers
 
 ```php
-wireTests()->li('message');    // output a status line
-wireTests()->note('message');  // output a plain note
+$this->check('description', $expected, $actual); // assert strict equality by default
+$this->check('description', $expected, $actual, '>='); // supported operators: ===, !==, ==, !=, <, <=, >, >=, *=, ^=, $=
+$this->fail('reason');   // fail this test
+$this->ok('message');    // output an OK status line
+$this->li('message');    // output a status line
+
+wireTests()->li('message');   // legacy/global helper
+wireTests()->note('message'); // output a plain note
 ```
 
 ### Tips
@@ -223,12 +255,16 @@ wireTests()->note('message');  // output a plain note
 
 ## How the test runner works
 
-1. `runTests()` iterates every `.php` file in `tests/`, sorted by filename.
-2. For each file whose basename matches an installed module name, it `include()`s the file
-   inside a `try/catch` block.
-3. `WireTestException` → test fails (message shown). Any other `Throwable` → test fails.
-4. No exception → test passes.
-5. A summary line is printed at the end showing passed/failed counts.
+1. `runTests()` iterates every `.php` file in `tests/`.
+2. Tests for optional modules are skipped when the module is not installed. Core class tests
+   run when the core class exists.
+3. The runner includes the test file inside a `try/catch` block.
+4. If the file defines `WireTest_TestName`, the runner creates it, calls `allow()`,
+   `init()`, `execute()`, and then `finish()`.
+5. `finish()` is called even when `execute()` fails, so it is the right place for cleanup.
+6. Legacy flat-file tests pass when the file reaches the end without throwing.
+7. `WireTestException` → test fails (message shown). Any other `Throwable` → test fails.
+8. A summary line is printed at the end showing passed/failed counts.
 
 
 ## Contributing

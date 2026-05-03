@@ -35,7 +35,6 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 	 */
 	protected $testsPath = '';
 	
-	
 	/**
 	 * Test timer
 	 * 
@@ -118,22 +117,6 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 	}
 	
 	/**
-	 * Command line ready
-	 * 
-	 * @param array $args
-	 * 
-	public function cliReady($args) {
-		if(count($args)) {
-		} else {
-			$this->line("ProcessWireTests Usage:"); 
-			foreach($this->getTestFiles() as $name => $file) {
-				$this->li("php index.php test $name"); 
-			}
-		}
-	}
-	 */
-	
-	/**
 	 * Initialize new test
 	 * 
 	 * @param string $name
@@ -173,6 +156,16 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 	}
 	
 	/**
+	 * Output an OK item
+	 *
+	 * @param string $line
+	 *
+	 */
+	public function ok($line) {
+		$this->li("OK: $line"); 
+	}
+	
+	/**
 	 * Output a note
 	 * 
 	 * @param string $note
@@ -205,7 +198,7 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 	}
 	
 	/**
-	 * Assert that $expectValue and $actualValue satisfy $operator, output li() on pass or throw on fail
+	 * Assert that $expectValue and $actualValue satisfy $operator, output ok() on pass or throw on fail
 	 *
 	 * Supported operators: ===, !==, ==, !=, <, <=, >, >=
 	 * String operators (actual vs. expected): *= (contains), ^= (starts with), $= (ends with)
@@ -251,7 +244,7 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 			if(!$message) $message = "$testName: Expected: " . var_export($expectValue, true) . ", Received: " . var_export($actualValue, true);
 			throw new WireTestException($message);
 		}
-		$this->li("$testName: OK");
+		$this->ok("$testName");
 	}
 	
 	/**
@@ -320,25 +313,50 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 					continue;
 				}
 			} else {
-				$module = $this->wire()->modules->getModule($className);
-				if(!$module) {
+				if(!$this->wire()->modules->isInstalled($className)) {
 					$this->line("Skipping '$className' - not available");
 					continue;
 				}
 			}
+		
+			$testInstance = null;
+			$success = false;
 			
 			try {
+				$wireTestClassName = __NAMESPACE__ . "\\WireTest_$className";
 				$this->initTest($className);
 				include($testFile);
-				$this->success();
+				if(class_exists($wireTestClassName)) {
+					/** @var WireTest $testInstance */
+					$testInstance = new $wireTestClassName($this);
+					if(!$testInstance->allow()) {
+						$this->line("Skipping '$className' - not supported"); 
+						continue;
+					}
+					$testInstance->init();
+					$testInstance->execute();
+					$success = true;
+				}
+				$success = true;
 				
 			} catch(WireTestException $e) {
 				$this->fail($e->getMessage());
 				
 			} catch(\Throwable $t) {
 				$this->fail($t->getMessage());
+				
+			} finally {
+				if($testInstance) {
+					try {
+						$testInstance->finish();
+					} catch(\Throwable $e) {
+						$this->fail("Failed to finish/cleanup: " . $e->getMessage());
+						$success = false;
+					}
+				}
 			}
-			
+		
+			if($success) $this->success();
 			if(!$runAll) break;
 		}
 		
@@ -401,6 +419,29 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 	}
 	
 	/**
+	 * Get all WireTest class instances
+	 * 
+	 * @param string $path
+	 * @return array
+	 * 
+	 */
+	public function getWireTestInstances($path = '') {
+		$testFiles = $this->getTestFiles($path);
+		$instances = [];
+		foreach($testFiles as $basename => $testFile) {
+			$s = file_get_contents($testFile);
+			if(stripos($s, "WireTest_$basename") === false) continue;
+			include_once($testFile);
+			$class = __NAMESPACE__ . "\\WireTest_$basename";
+			/** @var WireTest $instance */
+			$instance = new $class($this);
+			if(!$instance->allow()) continue;
+			$instances[$basename] = $instance;
+		}
+		return $instances; 
+	}
+	
+	/**
 	 * Get (or create) the template file used by the test page
 	 * 
 	 * @param bool $create Create it if it doesn't exist?
@@ -440,7 +481,14 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 		$pages = $this->wire()->pages;
 		$template = $this->getTestTemplate();
 		$page = $pages->get("name=test, template=$template->name");
-		if($page->id) return $page;
+		if($page->id) {
+			if($page->isHidden() || $page->isUnpublished()) {
+				$page->removeStatus('hidden');
+				$page->removeStatus('unpublished');
+				$page->save();
+			}
+			return $page;
+		}
 		if(!$create) return false;
 		if(!$page->id) $page = $pages->new([
 			'template' => $template,
@@ -466,6 +514,13 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 	 * 
 	 */
 	public function uninstall() {
+		foreach($this->getWireTestInstances() as $wireTest) {
+			try {
+				$wireTest->uninstall();
+			} catch(\Exception $e) {
+				$this->error($e->getMessage());
+			}
+		}
 		$page = $this->getTestPage(false);
 		if($page && $page->id) {
 			$this->wire()->pages->delete($page);
@@ -533,7 +588,7 @@ function wireTests(?WireTests $wireTests = null) {
 }
 
 /**
- * Assert that $expectValue and $actualValue satisfy $operator, output li() on pass or throw on fail
+ * Assert that $expectValue and $actualValue satisfy $operator, output ok() on pass or throw on fail
  *
  * Supported operators: ===, !==, ==, !=, <, <=, >, >=
  * String operators (actual vs. expected): *= (contains), ^= (starts with), $= (ends with)
@@ -555,3 +610,4 @@ function check($testName, $expectValue, $actualValue, $operator = '===') {
  */
 class WireTestException extends WireException { }
 
+include(__DIR__ . '/WireTest.php'); 
