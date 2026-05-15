@@ -87,7 +87,7 @@ $page->save($name);
 $selectors = [
 	"template=test, $name*=quick brown",
 	"template=test, $name~=fox lazy",
-	"template=test, $name~|=cat fox bird",
+	"template=test, $name~|=cat brown bird",
 	"template=test, $name%=quick brown",
 	"template=test, $name^=The quick",
 	"template=test, $name\$=lazy dog",

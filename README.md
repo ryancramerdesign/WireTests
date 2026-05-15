@@ -23,7 +23,7 @@ starting point for anyone who wants to contribute new tests.
 
 ## Installation
 
-We have tested with and recommend installing this with ProcessWire's `site-blank` default 
+We have tested with and recommend installing this with ProcessWire's `site-blank` default
 installation profile, but technically it should work with any installation profile. Note
 that this module creates a template named `test` and a page named `/test/` so verify
 that you don't already have a template/page with the same names.
@@ -36,7 +36,7 @@ that you don't already have a template/page with the same names.
 
 ## Running tests
 
-Tests can be run either from the command line or from the admin in the WireTests 
+Tests can be run either from the command line or from the admin in the WireTests
 module configuration screen.
 
 ### From the command line (recommended)
@@ -50,12 +50,20 @@ php index.php test FieldtypeText
 # Run all tests
 php index.php test all
 
+# Run a test file outside the bundled tests directory
+php index.php test wire/core/WireMail/tests/WireMailTools.php
+
+# Run all tests in an external directory
+php index.php test site/modules/MyModule/tests/
+
 # List all tests (command help)
 php index.php
 ```
 
-Test names match the module/class name exactly (e.g. `FieldtypeText`, `FieldtypeOptions`).
-Tests for modules that are not installed are skipped automatically.
+Test names and test file basenames match the module/class name exactly (e.g. `FieldtypeText`,
+`FieldtypeOptions`). Tests for modules that are not installed are skipped automatically.
+External test files may be specified as absolute paths or paths relative to the ProcessWire
+installation root. External directories run all `.php` tests in that directory.
 
 ### From the admin
 
@@ -76,8 +84,10 @@ Core class tests call API methods directly and verify return values.
 | `Modules`                 | get, install, uninstall, findByPrefix/Flag/Info, getModuleInfo, config get/save, helper classes           |
 | `Pages`                   | get, find, findIDs, getRaw, findRaw, getFresh, add, new, save, clone, cache, sort, trash, restore, delete |
 | `Sanitizer`               | Text, names, numbers, booleans, URLs, arrays, HTML entities, validation, truncation, chaining             |
+| `WireCache`               | Save/get/delete, generated values, arrays, PageArrays, expiration modes, preloading, renderFile           |
 | `WireDatabasePDO`         | Connection access, queries, transactions, schema inspection, sanitization, info, query log, backups       |
 | `WireInput`               | GET/POST/COOKIE/whitelist input, inline sanitization, URL segments, page numbers, URLs, query strings     |
+| `WireMailTools`           | WireMail builder, quick send methods, PHP-style mail helpers, headers, attachments, blacklist checks      |
 | `FieldtypeCheckbox`       | Boolean 0/1 storage, output formatting                                                                    |
 | `FieldtypeDatetime`       | Date/time storage, PHP date strings, timestamp input, selectors                                           |
 | `FieldtypeDecimal`        | Decimal storage, precision, comparison selectors                                                          |
@@ -150,7 +160,7 @@ class WireTest_MyClass extends WireTest {
 }
 ```
 
-The example below demonstrates the file structure for a Fieldtype test. 
+The example below demonstrates the file structure for a Fieldtype test.
 For more and better examples, see the files in the `tests/` directory.
 
 ```php

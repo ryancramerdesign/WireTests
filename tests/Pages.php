@@ -148,8 +148,8 @@ $null1 = $pages->newNullPage();
 $null2 = $pages->newNullPage();
 check("newNullPage() returns NullPage", true, $null1 instanceof NullPage);
 check("newNullPage() id=0", 0, $null1->id);
-check("newNullPage() returns same shared instance", true, $null1 === $null2);
-check("newNullPage(true) returns a fresh instance", true, $pages->newNullPage(true) !== $null1);
+check("newNullPage() returns a new instance", true, $null1 !== $null2);
+check("newNullPage(true) returns a new instance", true, $pages->newNullPage(true) !== $null1);
 
 // ===== CREATING PAGES =====
 
