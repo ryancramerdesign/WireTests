@@ -86,6 +86,7 @@ Core class tests call API methods directly and verify return values.
 | `Pages`                   | get, find, findIDs, getRaw, findRaw, getFresh, add, new, save, clone, cache, sort, trash, restore, delete |
 | `Sanitizer`               | Text, names, numbers, booleans, URLs, arrays, HTML entities, validation, truncation, chaining             |
 | `TemplateFile`            | Render variables, prepend/append order, trim, return values, halt, chdir, render stack, file failures     |
+| `Users`                   | Users, roles, permissions, PagesType lookup/creation, role assignment, permission aggregation, admin theme |
 | `WireCache`               | Save/get/delete, generated values, arrays, PageArrays, expiration modes, preloading, renderFile           |
 | `WireDatabasePDO`         | Connection access, queries, transactions, schema inspection, sanitization, info, query log, backups       |
 | `WireInput`               | GET/POST/COOKIE/whitelist input, inline sanitization, URL segments, page numbers, URLs, query strings     |
