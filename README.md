@@ -82,11 +82,14 @@ Core class tests call API methods directly and verify return values.
 | Test file                 | What it covers                                                                                            |
 |---------------------------|-----------------------------------------------------------------------------------------------------------|
 | `Modules`                 | get, install, uninstall, findByPrefix/Flag/Info, getModuleInfo, config get/save, helper classes           |
+| `Notices`                 | Notice flags, duplicate handling, logging flags, visibility, formatting, rendering, movement              |
 | `Pages`                   | get, find, findIDs, getRaw, findRaw, getFresh, add, new, save, clone, cache, sort, trash, restore, delete |
 | `Sanitizer`               | Text, names, numbers, booleans, URLs, arrays, HTML entities, validation, truncation, chaining             |
+| `TemplateFile`            | Render variables, prepend/append order, trim, return values, halt, chdir, render stack, file failures     |
 | `WireCache`               | Save/get/delete, generated values, arrays, PageArrays, expiration modes, preloading, renderFile           |
 | `WireDatabasePDO`         | Connection access, queries, transactions, schema inspection, sanitization, info, query log, backups       |
 | `WireInput`               | GET/POST/COOKIE/whitelist input, inline sanitization, URL segments, page numbers, URLs, query strings     |
+| `WireLog`                 | Save/read/delete logs, metadata, queued entries, disabled logs, pruning, FileLog backend behavior         |
 | `WireMailTools`           | WireMail builder, quick send methods, PHP-style mail helpers, headers, attachments, blacklist checks      |
 | `FieldtypeCheckbox`       | Boolean 0/1 storage, output formatting                                                                    |
 | `FieldtypeDatetime`       | Date/time storage, PHP date strings, timestamp input, selectors                                           |
@@ -109,6 +112,8 @@ Core class tests call API methods directly and verify return values.
 | `FieldtypeURL`            | URL storage, scheme sanitization, `noRelative` setting, selectors                                         |
 | `FieldtypeCustom`         | Subfield definition file, JSON storage, rename migration, selectors                                       |
 | `FieldtypeCombo`          | Typed subfields, select formatting, field config API, subfield CRUD                                       |
+| `Fields`                  | Field lookup, creation, save/clone/delete, tags, type finders, usage counts, context, field helpers       |
+| `Fieldgroups`             | Fieldgroup lookup, creation, membership, template usage, context, namespaces, clone/import/export         |
 
 
 ## Writing your own test
