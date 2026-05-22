@@ -2,11 +2,11 @@
 
 $info = [
 	'title' => 'Wire Tests',
-	'summary' => 'Test suite for ProcessWire 3.0.259+',
-	'version' => 5,
+	'summary' => 'Test suite for ProcessWire 3.0.263+',
+	'version' => 6,
 	'author' => 'Ryan Cramer, Claude Sonnet 4.6, Codex/GPT 5.5',
 	'autoload' => false,
 	'singular' => true,
-	'requires' => 'ProcessWire>=3.0.259',
+	'requires' => 'ProcessWire>=3.0.263',
 	'cli' => 'test',
 ];

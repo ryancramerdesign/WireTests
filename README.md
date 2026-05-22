@@ -88,7 +88,9 @@ Core class tests call API methods directly and verify return values.
 | `TemplateFile`            | Render variables, prepend/append order, trim, return values, halt, chdir, render stack, file failures     |
 | `Users`                   | Users, roles, permissions, PagesType lookup/creation, role assignment, permission aggregation, admin theme |
 | `WireCache`               | Save/get/delete, generated values, arrays, PageArrays, expiration modes, preloading, renderFile           |
+| `WireClassLoader`         | Namespace registration/removal, class maps, extensions, prefix/suffix fallback paths, file lookup         |
 | `WireDatabasePDO`         | Connection access, queries, transactions, schema inspection, sanitization, info, query log, backups       |
+| `WireDateTime`            | Date/strftime formatting, string parsing, relative time, elapsed time, format conversion                  |
 | `WireInput`               | GET/POST/COOKIE/whitelist input, inline sanitization, URL segments, page numbers, URLs, query strings     |
 | `WireLog`                 | Save/read/delete logs, metadata, queued entries, disabled logs, pruning, FileLog backend behavior         |
 | `WireMailTools`           | WireMail builder, quick send methods, PHP-style mail helpers, headers, attachments, blacklist checks      |
