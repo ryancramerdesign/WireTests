@@ -21,7 +21,7 @@ $field = fields()->get($name);
 
 if(!$field) {
 	/** @var RepeaterMatrixField $field */
-	$field = fields()->new($fieldtype, $name, 'Test matrix');
+	$field = fields()->new($fieldtype, $name, 'Test Matrix');
 	wireTests()->li("Created field: $field->name");
 
 	// Add sub-fields to the matrix template's fieldgroup
