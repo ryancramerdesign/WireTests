@@ -84,6 +84,14 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 	protected $cwd = '';
 
 	/**
+	 * Test file discovery cache
+	 *
+	 * @var array|null
+	 *
+	 */
+	protected $testFileRecords = null;
+
+	/**
 	 * Construct
 	 *
 	 */
@@ -275,66 +283,6 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 	}
 
 	/**
-	 * Get test files corresponding to given name
-	 *
-	 * @param string $name Name of test, path, path+name, or all
-	 * @return array|string[]
-	 *
-	 */
-	protected function getTestFiles($name) {
-
-		$config = $this->wire()->config;
-		$slashPos = strpos($name, '/');
-		$ext = pathinfo($name, PATHINFO_EXTENSION);
-
-		if($name === 'all') {
-			// run all tests in default path
-			$path = $this->getTestsPath();
-			$testFiles = $this->getTestFilesFromPath($path);
-
-		} else if(strtolower($ext) === 'php') {
-			// custom test file specified
-			$testFile = $slashPos === 0 ? $name : $config->paths->root . $name;
-			$name = basename($name, ".$ext");
-			if(!file_exists($testFile)) {
-				$this->fail("Test file not found: $testFile");
-				return [];
-			}
-			$testFiles = [$name => $testFile];
-			$path = dirname($testFile) . '/';
-
-		} else if($slashPos === 0) {
-			// run all in specified absolute path
-			$path = rtrim($name, '/') . '/';
-			$testFiles = is_dir($path) ? $this->getTestFilesFromPath($path) : [];
-
-		} else if($slashPos) {
-			// run all in specified dir relative to install root
-			$path = $config->paths->root . trim($name, '/') . '/';
-			$testFiles = is_dir($path) ? $this->getTestFilesFromPath($path) : [];
-
-		} else {
-			// default path/tests
-			$path = $this->getTestsPath();
-			$testFiles = $this->getTestFilesFromPath($path);
-			if(!isset($testFiles[$name])) {
-				$this->fail("Test not found: $name");
-				return [];
-			}
-			$testFiles = [$name => $testFiles[$name]];
-		}
-
-		if(is_dir($path)) {
-			$this->setTestsPath($path);
-		} else {
-			$this->fail("Test path not found: $path");
-			$testFiles = [];
-		}
-
-		return $testFiles;
-	}
-
-	/**
 	 * Run tests
 	 *
 	 * @param string $name Test name or omit for 'all'
@@ -348,7 +296,7 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 
 		$this->testName = $name;
 		$this->cwd = getcwd();
-		$testFiles = $this->getTestFiles($name);
+		$testFiles = $this->getTestFileRecords($name);
 		$numTests = count($testFiles);
 
 		if(!count($testFiles)) {
@@ -356,20 +304,17 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 			return;
 		}
 
-		$path = $this->getTestsPath();
-		chdir($path);
-
 		$fuel = $this->wire()->fuel->getArray();
 		extract($fuel); // place API variables in scope
 
-		$this->line("Running $numTests test(s) in $path");
+		$this->line("Running $numTests test(s)");
 
-		foreach($testFiles as $testName => $testFile) {
+		foreach($testFiles as $testName => $test) {
 
 			$page = $this->getTestPage(); // get again just in case a test overwrote it
 			$page->of(false); // reset output formatting before each test
 
-			$className = $testName;
+			$className = $test['name'];
 			if(!$modules->isInstalled($className)) {
 				// Also allow tests for core classes (e.g. Sanitizer) that aren't installable modules
 				$coreClass = __NAMESPACE__ . "\\$className";
@@ -388,8 +333,10 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 			$success = false;
 
 			try {
-				$wireTestClassName = __NAMESPACE__ . "\\WireTest_$className";
+				$testFile = $test['file'];
+				$wireTestClassName = __NAMESPACE__ . "\\$test[class]";
 				$this->initTest($className);
+				chdir($test['path']);
 				include($testFile);
 				if(class_exists($wireTestClassName)) {
 					/** @var WireTest $testInstance */
@@ -426,7 +373,7 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 
 		$this->summary();
 
-		chdir($this->cwd);
+		if($this->cwd) chdir($this->cwd);
 	}
 
 	/**
@@ -437,8 +384,15 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 	 */
 	public function getCliCommands() {
 		$commands = [ 'all' => 'Run all tests' ];
-		foreach(array_keys($this->getTestFilesFromPath()) as $name) {
-			$commands[$name] = "Test $name";
+		$names = [];
+		foreach($this->getTestFileRecords() as $record) {
+			$name = $record['name'];
+			if(isset($names[$name])) {
+				$commands[$record['key']] = "Test $name in " . $this->getRelativePath($record['file'], $this->wire()->config->paths->root);
+			} else {
+				$commands[$name] = "Test $name";
+				$names[$name] = true;
+			}
 		}
 		ksort($commands);
 		$commands['/path/to/myfile.php'] = "Run custom test in /path/to/myfile.php";
@@ -464,6 +418,7 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 	 */
 	public function setTestsPath($path) {
 		$this->testsPath = $path;
+		$this->testFileRecords = null;
 	}
 
 	/**
@@ -474,15 +429,395 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 	 *
 	 */
 	public function getTestFilesFromPath($path = '') {
-		if(empty($path)) $path = $this->getTestsPath();
-		$dir = new \DirectoryIterator($path);
+		$records = $this->getTestFileRecordsFromPath($path);
 		$tests = [];
-		foreach($dir as $file) {
-			if($file->isDir() || $file->isDot()) continue;
-			if($file->getExtension() !== 'php') continue;
-			$tests[$file->getBasename('.php')] = $file->getPathname();
+		foreach($records as $record) {
+			$name = isset($tests[$record['name']]) ? $record['key'] : $record['name'];
+			$tests[$name] = $record['file'];
 		}
 		return $tests;
+	}
+
+	/**
+	 * Get test file records corresponding to given name/path/scope
+	 *
+	 * @param string $name Name of test, path, path+name, directory, or all
+	 * @return array
+	 *
+	 */
+	protected function getTestFileRecords($name = 'all') {
+		$root = $this->wire()->config->paths->root;
+		$name = trim((string) $name);
+		if($name === '') $name = 'all';
+
+		if($name === 'all') return $this->discoverTestFiles();
+
+		$path = $this->resolveTestPath($name);
+		if($path && is_file($path)) {
+			$record = $this->getTestFileRecord($path, true, true);
+			if(!$record) $this->fail("Test file does not contain a WireTest class: $path");
+			return $record ? [ $record['key'] => $record ] : [];
+		}
+
+		if($path && is_dir($path)) return $this->getTestFileRecordsFromPath($path, true);
+
+		if(strpos($name, '/') !== false || strpos($name, DIRECTORY_SEPARATOR) !== false) {
+			$this->fail("Test path not found: $name");
+			return [];
+		}
+
+		$matches = [];
+		foreach($this->discoverTestFiles() as $key => $record) {
+			if($record['name'] === $name) $matches[$key] = $record;
+		}
+
+		if(count($matches) > 1) {
+			$files = array_map(function($record) use ($root) {
+				return $this->getRelativePath($record['file'], $root);
+			}, $matches);
+			$this->fail("Test name '$name' is ambiguous, specify path: " . implode(', ', $files));
+			return [];
+		}
+
+		if(empty($matches)) {
+			$this->fail("Test not found: $name");
+			return [];
+		}
+
+		return $matches;
+	}
+
+	/**
+	 * Discover all test files from configured roots
+	 *
+	 * @return array
+	 *
+	 */
+	protected function discoverTestFiles() {
+		if($this->testFileRecords !== null) return $this->testFileRecords;
+
+		$records = [];
+		foreach($this->getTestDiscoveryPaths() as $path) {
+			foreach($this->getTestFileRecordsFromPath($path, true) as $key => $record) {
+				$records[$key] = $record;
+			}
+		}
+		ksort($records);
+		$this->testFileRecords = $records;
+		return $records;
+	}
+
+	/**
+	 * Get paths searched for tests
+	 *
+	 * @return array
+	 *
+	 */
+	protected function getTestDiscoveryPaths() {
+		$config = $this->wire()->config;
+		return [
+			$this->getTestsPath(),
+			$config->paths->root . 'site/',
+			$config->paths->root . 'wire/core/',
+			$config->paths->root . 'wire/modules/',
+		];
+	}
+
+	/**
+	 * Get all test file records in given path
+	 *
+	 * @param string $path
+	 * @param bool $recursive
+	 * @return array
+	 *
+	 */
+	protected function getTestFileRecordsFromPath($path = '', $recursive = false) {
+		if(empty($path)) $path = $this->getTestsPath();
+		$path = rtrim($path, '/') . '/';
+		if(!is_dir($path)) return [];
+
+		$tests = [];
+		$flags = \FilesystemIterator::SKIP_DOTS;
+		$iterator = $recursive ?
+			new \RecursiveIteratorIterator(
+				new \RecursiveCallbackFilterIterator(
+					new \RecursiveDirectoryIterator($path, $flags),
+					function($file) {
+						if($file->isDir()) return !$this->isExcludedTestPath($file->getPathname());
+						return true;
+					}
+				)
+			) :
+			new \IteratorIterator(new \DirectoryIterator($path));
+
+		foreach($iterator as $file) {
+			if(!$file->isFile() || $file->getExtension() !== 'php') continue;
+			if($this->isExcludedTestPath($file->getPathname())) continue;
+			$allowLegacy = $this->isLegacyTestsPath($file->getPathname(), true);
+			$record = $this->getTestFileRecord($file->getPathname(), false, $allowLegacy);
+			if(!$record) continue;
+			$tests[$record['key']] = $record;
+		}
+
+		ksort($tests);
+		return $tests;
+	}
+
+	/**
+	 * Get test file record for given file
+	 *
+	 * @param string $file
+	 * @param bool $allowAnyWireTestClass
+	 * @param bool $allowLegacyFlatFile
+	 * @return array|null
+	 *
+	 */
+	protected function getTestFileRecord($file, $allowAnyWireTestClass = false, $allowLegacyFlatFile = false) {
+		if(!is_file($file)) return null;
+
+		$basename = basename($file, '.php');
+		$isTestFile = substr($basename, -5) === '.test' || strpos($basename, 'WireTest_') === 0;
+		if(!$isTestFile && !$allowLegacyFlatFile) return null;
+
+		$name = substr($basename, -5) === '.test' ? substr($basename, 0, -5) : $basename;
+		if(strpos($name, 'WireTest_') === 0) $name = substr($name, 9);
+		if($name === '') return null;
+
+		$class = "WireTest_$name";
+		$contents = file_get_contents($file);
+		if($contents === false) return null;
+
+		if(!preg_match('/\bclass\s+' . preg_quote($class, '/') . '\b/', $contents)) {
+			if(!$allowAnyWireTestClass && !$allowLegacyFlatFile) return null;
+			if(preg_match('/\bclass\s+(WireTest_[A-Za-z0-9_]+)\b/', $contents, $matches)) {
+				$class = $matches[1];
+				$name = substr($class, 9);
+			} else if(!$allowLegacyFlatFile) {
+				return null;
+			}
+		}
+
+		$file = str_replace('\\', '/', $file);
+
+		return [
+			'name' => $name,
+			'class' => $class,
+			'file' => $file,
+			'path' => dirname($file) . '/',
+			'key' => $this->getTestRecordKey($name, $file),
+		];
+	}
+
+	/**
+	 * Return a unique key for a test record
+	 *
+	 * @param string $name
+	 * @param string $file
+	 * @return string
+	 *
+	 */
+	protected function getTestRecordKey($name, $file) {
+		$root = $this->wire()->config->paths->root;
+		$relative = $this->getRelativePath($file, $root);
+		return "$name:$relative";
+	}
+
+	/**
+	 * Resolve CLI test path to absolute path
+	 *
+	 * @param string $name
+	 * @return string
+	 *
+	 */
+	protected function resolveTestPath($name) {
+		if(strpos($name, '/') === 0) return $name;
+		if(strpos($name, '/') !== false || strpos($name, DIRECTORY_SEPARATOR) !== false) {
+			return $this->wire()->config->paths->root . ltrim($name, '/');
+		}
+		return '';
+	}
+
+	/**
+	 * Get excluded test path patterns
+	 *
+	 * @return array
+	 *
+	 */
+	protected function getTestPathExclusions() {
+		return [
+			'site/assets/',
+			'site/templates/styles/',
+			'site/templates/scripts/',
+			'*/vendor/',
+			'*/.*',
+			'*.old/',
+			'wire/modules/AdminTheme/AdminThemeDefault/',
+			'wire/modules/AdminTheme/AdminThemeReno/',
+			'wire/modules/AdminTheme/AdminThemeUikit/*/',
+			'wire/modules/Inputfield/InputfieldCKEditor/*/',
+			'wire/modules/Inputfield/InputfieldTinyMCE/*/',
+			'wire/modules/Jquery/JqueryCore/',
+			'wire/modules/Jquery/JqueryMagnific/',
+			'wire/modules/Jquery/JqueryTableSorter/',
+			'wire/modules/Jquery/JqueryUI/',
+			'wire/modules/Markup/MarkupHTMLPurifier/htmlpurifier/',
+			'wire/modules/Textformatter/TextformatterMarkdownExtra/*/',
+			'wire/modules/Textformatter/TextformatterSmartypants/*/',
+			'wire/templates-admin/',
+			'site/modules/*/*/',
+		];
+	}
+
+	/**
+	 * Is given path excluded from test discovery?
+	 *
+	 * @param string $path
+	 * @return bool
+	 *
+	 */
+	protected function isExcludedTestPath($path) {
+		$root = $this->wire()->config->paths->root;
+		$relative = $this->getRelativePath($path, $root);
+		if($this->isLegacyTestsPath($path)) return false;
+		if($this->isHiddenPath($relative)) return true;
+		if($this->isOldPath($relative)) return true;
+		$isDir = is_dir($path);
+		foreach($this->getTestPathExclusions() as $pattern) {
+			if($this->matchesTestPathExclusion($pattern, $relative, $isDir)) return true;
+		}
+		if(strpos($relative, 'site/') === 0 || strpos($relative, 'wire/') === 0) {
+			foreach(explode('/', trim($relative, '/')) as $segment) {
+				if(preg_match('/-\d+\.\d+(?:\.\d+)?(?:[-._a-z0-9]*)?$/i', $segment)) return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Does relative path match an exclusion pattern?
+	 *
+	 * Directory patterns ending in "/" exclude matching directories recursively.
+	 * Patterns with slash-star-slash suffix exclude matching direct child directories recursively.
+	 *
+	 * @param string $pattern
+	 * @param string $relative
+	 * @param bool $isDir
+	 * @return bool
+	 *
+	 */
+	protected function matchesTestPathExclusion($pattern, $relative, $isDir = false) {
+		$pattern = trim(str_replace('\\', '/', $pattern));
+		$relative = ltrim(str_replace('\\', '/', $relative), '/');
+
+		if($pattern === '') return false;
+
+		if(substr($pattern, -3) === '/*/') {
+			$basePattern = substr($pattern, 0, -3);
+			$segmentPaths = $this->getRelativePathSegments($relative);
+			$numSegmentPaths = count($segmentPaths);
+			foreach($segmentPaths as $n => $segmentPath) {
+				if(!$isDir && $n === $numSegmentPaths - 1) continue;
+				if(strpos($segmentPath, '/') === false) continue;
+				$parent = dirname($segmentPath);
+				if($parent === '.') $parent = '';
+				if(fnmatch($basePattern, $parent)) return true;
+			}
+			return false;
+		}
+
+		if(substr($pattern, -1) === '/') {
+			$dirPattern = rtrim($pattern, '/');
+			foreach($this->getRelativePathSegments($relative) as $segmentPath) {
+				if(fnmatch($dirPattern, $segmentPath)) return true;
+			}
+			return false;
+		}
+
+		return fnmatch($pattern, $relative);
+	}
+
+	/**
+	 * Is given relative path hidden by any dot-prefixed segment?
+	 *
+	 * @param string $relative
+	 * @return bool
+	 *
+	 */
+	protected function isHiddenPath($relative) {
+		foreach(explode('/', trim($relative, '/')) as $segment) {
+			if($segment !== '' && strpos($segment, '.') === 0) return true;
+		}
+		return false;
+	}
+
+	/**
+	 * Is given relative path in a .old path or itself a .old file/directory?
+	 *
+	 * @param string $relative
+	 * @return bool
+	 *
+	 */
+	protected function isOldPath($relative) {
+		foreach(explode('/', trim($relative, '/')) as $segment) {
+			if(substr($segment, -4) === '.old') return true;
+		}
+		return false;
+	}
+
+	/**
+	 * Get cumulative relative path segments
+	 *
+	 * @param string $relative
+	 * @return array
+	 *
+	 */
+	protected function getRelativePathSegments($relative) {
+		$segments = [];
+		$path = '';
+		foreach(explode('/', trim($relative, '/')) as $segment) {
+			if($segment === '') continue;
+			$path = $path === '' ? $segment : "$path/$segment";
+			$segments[] = $path;
+		}
+		return $segments;
+	}
+
+	/**
+	 * Is given path in the bundled legacy tests path?
+	 *
+	 * @param string $path
+	 * @return bool
+	 *
+	 */
+	protected function isLegacyTestsPath($path, $directChildOnly = false) {
+		$path = str_replace('\\', '/', $path);
+		$testsPath = rtrim(str_replace('\\', '/', $this->getTestsPath()), '/') . '/';
+		if(strpos($path, $testsPath) === 0) {
+			return !$directChildOnly || dirname($path) . '/' === $testsPath;
+		}
+		$realPath = realpath($path);
+		if(!$realPath) return false;
+		$realPath = str_replace('\\', '/', $realPath);
+		$realTestsPath = realpath($testsPath);
+		if(!$realTestsPath) return false;
+		$realTestsPath = rtrim(str_replace('\\', '/', $realTestsPath), '/') . '/';
+		if(strpos($realPath, $realTestsPath) !== 0) return false;
+		return !$directChildOnly || dirname($realPath) . '/' === $realTestsPath;
+	}
+
+	/**
+	 * Get path relative to root
+	 *
+	 * @param string $path
+	 * @param string $root
+	 * @return string
+	 *
+	 */
+	protected function getRelativePath($path, $root) {
+		$path = str_replace('\\', '/', $path);
+		$root = rtrim(str_replace('\\', '/', $root), '/') . '/';
+		if(strpos($path, $root) === 0) return substr($path, strlen($root));
+		return ltrim($path, '/');
 	}
 
 	/**
