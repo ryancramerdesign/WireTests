@@ -440,6 +440,7 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 		foreach(array_keys($this->getTestFilesFromPath()) as $name) {
 			$commands[$name] = "Test $name";
 		}
+		ksort($commands);
 		$commands['/path/to/myfile.php'] = "Run custom test in /path/to/myfile.php";
 		$commands['dir/to/myfile.php'] = "Run custom test file (relative to installation root)";
 		return $commands;
