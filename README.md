@@ -91,6 +91,7 @@ Core class tests call API methods directly and verify return values.
 | `WireClassLoader`         | Namespace registration/removal, class maps, extensions, prefix/suffix fallback paths, file lookup         |
 | `WireDatabasePDO`         | Connection access, queries, transactions, schema inspection, sanitization, info, query log, backups       |
 | `WireDateTime`            | Date/strftime formatting, string parsing, relative time, elapsed time, format conversion                  |
+| `WireHooks`               | Hook timing, return replacement, properties/methods, removal, priority, HookEvent data, conditional hooks |
 | `WireInput`               | GET/POST/COOKIE/whitelist input, inline sanitization, URL segments, page numbers, URLs, query strings     |
 | `WireLog`                 | Save/read/delete logs, metadata, queued entries, disabled logs, pruning, FileLog backend behavior         |
 | `WireMailTools`           | WireMail builder, quick send methods, PHP-style mail helpers, headers, attachments, blacklist checks      |
@@ -98,6 +99,7 @@ Core class tests call API methods directly and verify return values.
 | `FieldtypeDatetime`       | Date/time storage, PHP date strings, timestamp input, selectors                                           |
 | `FieldtypeDecimal`        | Decimal storage, precision, comparison selectors                                                          |
 | `FieldtypeEmail`          | Email storage, sanitization, selectors                                                                    |
+| `FieldtypeFieldsetOpen`   | Fieldset open/tab/close creation, auto close-field repair, fieldgroup ordering                            |
 | `FieldtypeFile`           | File upload/storage/retrieval                                                                             |
 | `FieldtypeFloat`          | Float storage, precision, comparison selectors                                                            |
 | `FieldtypeImage`          | Image upload/storage/retrieval                                                                            |
@@ -123,13 +125,21 @@ Core class tests call API methods directly and verify return values.
 
 ### File naming and location
 
-Create a PHP file in the `site/modules/WireTests/tests/` directory. Name it after the
-module or core class it tests, exactly matching the class name:
+Test files can be located anywhere on your file system that is accessible to the WireTests module.
+Tests included with this module are located in the `site/modules/WireTests/tests/` directory, and
+you are welcome to place your own tests in there as well, but they would be overwritten during
+module upgrades, so a different location may be preferable.
 
-```
-tests/FieldtypeMyModule.php   # module test
-tests/Sanitizer.php           # core class test
-```
+If you are developing a module that you want to test, then the site/modules/MyModule/ directory
+is a fine place. If you are developing a site or application in ProcessWire, then you may want
+to create a dedicated `/tests/` directory in `/site/classes/tests/`, `/site/templates/tests/`
+or another location of your choice.
+
+The test filename should mirror the class being tested in one of the following formats
+(replacing `ClassName` with the actual class name being tested):
+
+- `ClassName.test.php`
+- `WireTest_ClassName.php`
 
 Module tests are skipped automatically if the module is not installed, so it is safe to
 include tests for optional or third-party modules. Core ProcessWire classes (such as
@@ -138,7 +148,8 @@ include tests for optional or third-party modules. Core ProcessWire classes (suc
 ### File structure
 
 New tests should extend the `WireTest` base class. The test class name must be
-`WireTest_` followed by the test file basename.
+`WireTest_` followed by the test name (typically class name), regardless of which
+format the test file basename uses (`Name.test.php` or `WireTest_Name.php`)
 
 ```php
 <?php namespace ProcessWire;
@@ -169,7 +180,9 @@ class WireTest_MyClass extends WireTest {
 ```
 
 The example below demonstrates the file structure for a Fieldtype test.
-For more and better examples, see the files in the `tests/` directory.
+For more and better examples, see the files in the
+`/site/modules/WireTests/tests/` directory. Note that the tests included
+with WireTests just use the class name as their file name.
 
 ```php
 <?php namespace ProcessWire;
@@ -219,8 +232,9 @@ class WireTest_FieldtypeMyModule extends WireTest {
 }
 ```
 
-Legacy flat-file tests are still supported. In flat-file tests, ProcessWire API variables
-are extracted into scope and the file passes if it reaches the end without throwing:
+Legacy flat-file tests are also supported, though not recommended for new tests. In
+flat-file tests, ProcessWire API variables are extracted into scope and the file
+passes if it reaches the end without throwing:
 
 ```php
 <?php namespace ProcessWire;
@@ -257,6 +271,19 @@ $this->li('message');    // output a status line
 
 wireTests()->li('message');   // legacy/global helper
 wireTests()->note('message'); // output a plain note
+```
+
+### Running custom tests from the command line
+
+To run a custom test use the following command from your ProcessWire installation
+root directory:
+
+```
+# Run just the MyModule.test.php
+php index.php test site/modules/MyModule/MyModule.test.php
+
+# Run all tests in the tests/ directory or directories below it
+php index.php test tests/*
 ```
 
 ### Tips
