@@ -15,7 +15,7 @@ $field = fields()->get($name);
 if(!$field) {
 	// Use newField() (wires without saving) so we can add all subfields before the first save
 	/** @var ComboField $field */
-	$field = fields()->newField('FieldtypeCombo', $name, 'Test combo');
+	$field = fields()->newField('FieldtypeCombo', $name, 'Test Combo');
 
 	$field->addSubfield($field->newSubfield('Text', 'city', 'City'));
 	$field->addSubfield($field->newSubfield('Integer', 'zip', 'ZIP'));
